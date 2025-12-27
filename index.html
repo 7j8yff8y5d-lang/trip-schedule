@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ja" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大洗1泊2日 たびのしおり | Ultimate Dashboard v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#151e2e' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base Styles */
+        body {
+            transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Glassmorphism Engine */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Animations */
+        .stagger-item { opacity: 0; transform: translateY(15px); }
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .tab-content.active { display: block; opacity: 1; }
+        
+        .list-anim-enter { animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+        /* Toggle Button Style for Members */
+        .member-toggle.active { background-color: #0ea5e9; color: white; border-color: #0ea5e9; }
+        .member-toggle { transition: all 0.2s ease; }
+
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-sky-500 selection:text-white">
+
+    <nav class="fixed top-0 w-full z-50 glass-card px-4 md:px-6 py-3 md:py-4 flex justify-between items-center border-b border-white/20 dark:border-slate-800/50">
+        <div class="flex items-center gap-2.5 group cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+            <div class="p-1.5 bg-gradient-to-tr from-sky-500 to-indigo-500 rounded-lg text-white shadow-lg shadow-sky-500/30 group-hover:scale-105 transition-transform duration-300">
+                <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+            </div>
+            <span class="text-lg md:text-xl font-bold tracking-tight">OARAI <span class="text-sky-600 dark:text-sky-400">TRIP</span></span>
+        </div>
+        <div class="flex items-center gap-3">
+             <button id="resetBtn" title="データをリセット" class="p-2 text-slate-400 hover:text-red-500 transition-colors text-xs font-bold border border-transparent hover:border-red-500/20 rounded-lg">
+                RESET
+            </button>
+            <div class="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+            <button id="themeToggle" class="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 18v1m9-9h1M4 12H3m15.364-6.364l.707.707M6.343 17.657l.707.707m0-12.728l-.707.707m12.728 12.728l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                <svg id="moonIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 118.646 3.646 9 9 0 0020.354 15.354z" /></svg>
+            </button>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto pt-24 pb-20 px-4 md:px-6">
+        
+        <header class="stagger-item mb-10 md:mb-14">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div class="relative">
+                    <div class="absolute -left-4 -top-4 w-20 h-20 bg-sky-500/10 rounded-full blur-2xl"></div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-100 text-sky-700 dark:bg-sky-900/20 dark:border-sky-800 dark:text-sky-300 text-xs font-bold mb-4 shadow-sm">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                        </span>
+                        2025/12/28（土）– 12/29（日）
+                    </div>
+                    <h1 class="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight leading-tight text-slate-900 dark:text-white">
+                        大洗1泊2日<br class="md:hidden"> <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-indigo-600 dark:from-sky-400 dark:to-indigo-400">Winter Journey</span>
+                    </h1>
+                    <p class="text-slate-600 dark:text-slate-400 max-w-xl text-sm md:text-base leading-relaxed">
+                        冬の海、神磯の鳥居、そして絶品の海鮮BBQ。
+                        静かな年末を彩る、4人のドライブトリップ。
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 md:gap-4 w-full md:w-auto">
+                    <div class="glass-card p-4 rounded-2xl text-center group hover:-translate-y-1 transition-transform">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Members</span>
+                        <div class="flex justify-center -space-x-2 overflow-hidden py-1">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs">H</div>
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs">Y</div>
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs">S</div>
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs">H</div>
+                        </div>
+                    </div>
+                    <div class="glass-card p-4 rounded-2xl text-center group hover:-translate-y-1 transition-transform">
+                        <span class="block text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Access</span>
+                        <div class="text-2xl font-bold flex justify-center items-center gap-2 text-slate-700 dark:text-slate-200">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 012-2v0m-2 0l2-2m-2 2l2 2" /></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-8 space-y-8">
+                <div class="sticky top-20 z-40 -mx-4 px-4 md:mx-0 md:px-0">
+                    <div class="flex gap-2 p-1.5 bg-slate-200/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl w-full md:w-fit overflow-x-auto shadow-inner no-scrollbar">
+                        <button onclick="switchTab('day1')" class="tab-btn active flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ring-1 ring-black/5 dark:ring-white/10" id="btn-day1">Day 01</button>
+                        <button onclick="switchTab('day2')" class="tab-btn flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800/50" id="btn-day2">Day 02</button>
+                        <button onclick="switchTab('money')" class="tab-btn flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800/50 flex items-center justify-center gap-2" id="btn-money">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Money
+                        </button>
+                    </div>
+                </div>
+
+                <div id="day1" class="tab-content active stagger-item space-y-6">
+                    <div class="glass-card p-6 md:p-8 rounded-3xl relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <h3 class="flex items-center gap-3 text-2xl font-bold mb-8 relative z-10">
+                            <div class="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 18v1m9-9h1M4 12H3m15.364-6.364l.707.707M6.343 17.657l.707.707m0-12.728l-.707.707m12.728 12.728l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                            </div>
+                            12/28 (土) Schedule
+                        </h3>
+                        
+                        <div class="space-y-10 border-l-2 border-slate-200 dark:border-slate-800 ml-3 md:ml-4 pl-8 md:pl-10 relative">
+                            <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-sky-500 z-10 group-hover:scale-125 transition-transform duration-300 shadow-[0_0_0_4px_rgba(14,165,233,0.2)]"></div>
+                                <span class="text-xs font-bold text-sky-500 uppercase tracking-wider mb-1 block">09:00</span>
+                                <h4 class="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">綾瀬駅 出発</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1 leading-relaxed">レンタカーで出発。常磐道を利用し、守谷SAまたは友部SAでリフレッシュ。</p>
+                            </div>
+                            <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-amber-500 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1 block">11:30</span>
+                                <h4 class="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">大洗磯前神社・神磯の鳥居</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-3">冬の澄んだ空気、波飛沫と鳥居のコントラスト。撮影のベストタイミング。</p>
+                                <div class="rounded-xl overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-500 grayscale group-hover:grayscale-0">
+                                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3223.367803737568!2d140.5847473762743!3d36.31295397240361!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x602237bb97068593%3A0x6b2450849303530e!2z5aSn5rSX56Ov5YmN56We56S-!5e0!3m2!1sja!2sjp!4v1703000000000!5m2!1sja!2sjp" width="100%" height="200" style="border:0;" allowfullscreen="" loading="lazy" class="w-full"></iframe>
+                                </div>
+                            </div>
+                            <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-slate-400 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">13:30</span>
+                                <h4 class="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">大洗海鮮市場 & ランチ</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">その場で剥きたての牡蠣を堪能。夜のBBQに向けた鮮魚の買い出しを実施。</p>
+                            </div>
+                            <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-indigo-500 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 block">16:00</span>
+                                <h4 class="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">チェックイン：波と月</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">一棟貸しの宿へ。サウナの準備やBBQのセッティングを開始。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="day2" class="tab-content stagger-item space-y-6">
+                    <div class="glass-card p-6 md:p-8 rounded-3xl relative overflow-hidden">
+                         <div class="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                        <h3 class="flex items-center gap-3 text-2xl font-bold mb-8">
+                            <div class="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 118.646 3.646 9 9 0 0020.354 15.354z" /></svg>
+                            </div>
+                            12/29 (日) Schedule
+                        </h3>
+                        <div class="space-y-10 border-l-2 border-slate-200 dark:border-slate-800 ml-3 md:ml-4 pl-8 md:pl-10 relative">
+                             <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-amber-400 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1 block">09:00</span>
+                                <h4 class="text-lg md:text-xl font-bold">朝食</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">要検討</p>
+                            </div>
+                             <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-slate-400 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">11:00</span>
+                                <h4 class="text-lg md:text-xl font-bold">チェックアウト & 出発</h4>
+                            </div>
+                             <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-indigo-600 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1 block">12:30</span>
+                                <h4 class="text-lg md:text-xl font-bold">牛久大仏</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-3">世界最大級の青銅製大仏。圧巻のスケール。</p>
+                                <div class="rounded-xl overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-500 grayscale group-hover:grayscale-0">
+                                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3230.3473210459524!2d140.21833537626943!3d35.98064607249118!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60226e6c8dc54929%3A0x673c6833b37a5f6!2z54mb5LmF5aSn54Zv!5e0!3m2!1sja!2sjp!4v1703000000000!5m2!1sja!2sjp" width="100%" height="200" style="border:0;" allowfullscreen="" loading="lazy" class="w-full"></iframe>
+                                </div>
+                            </div>
+                             <div class="relative group">
+                                <div class="absolute -left-[41px] md:-left-[49px] top-1 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-50 dark:bg-slate-900 border-4 border-sky-400 z-10 group-hover:scale-125 transition-transform duration-300"></div>
+                                <span class="text-xs font-bold text-sky-500 uppercase tracking-wider mb-1 block">14:30</span>
+                                <h4 class="text-lg md:text-xl font-bold">温泉・リラックス</h4>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">「湯舞音 龍ケ崎店」にて旅の締めくくり。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="money" class="tab-content stagger-item space-y-6">
+                    <div class="glass-card p-6 md:p-8 rounded-3xl bg-gradient-to-br from-white to-sky-50 dark:from-slate-800 dark:to-slate-900 border-t-4 border-sky-500 shadow-xl">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 class="text-xl font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                                    <span class="p-1.5 bg-sky-100 dark:bg-sky-900 rounded-md text-sky-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    </span>
+                                    Walica割り勘
+                                </h3>
+                                <p class="text-xs text-slate-500 mt-1">立て替えを入力するだけで自動精算</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Spend</span>
+                                <span id="displayTotal" class="text-3xl font-bold font-mono tracking-tight text-slate-900 dark:text-white transition-all duration-300">¥0</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-8">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Members (Edit Names)</label>
+                            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                <input type="text" id="member0" value="メンバーA" class="w-24 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-center text-sm focus:ring-2 focus:ring-sky-500 outline-none p-2 transition-all hover:bg-white dark:hover:bg-slate-700" onchange="updateMembers()">
+                                <input type="text" id="member1" value="メンバーB" class="w-24 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-center text-sm focus:ring-2 focus:ring-sky-500 outline-none p-2 transition-all hover:bg-white dark:hover:bg-slate-700" onchange="updateMembers()">
+                                <input type="text" id="member2" value="メンバーC" class="w-24 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-center text-sm focus:ring-2 focus:ring-sky-500 outline-none p-2 transition-all hover:bg-white dark:hover:bg-slate-700" onchange="updateMembers()">
+                                <input type="text" id="member3" value="メンバーD" class="w-24 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-center text-sm focus:ring-2 focus:ring-sky-500 outline-none p-2 transition-all hover:bg-white dark:hover:bg-slate-700" onchange="updateMembers()">
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50/80 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
+                                <div class="md:col-span-5">
+                                    <input type="text" id="expTitle" placeholder="項目 (例: 高速代)" class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400">
+                                </div>
+                                <div class="md:col-span-3">
+                                    <input type="number" id="expAmount" placeholder="¥ 金額" class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 font-mono">
+                                </div>
+                                <div class="md:col-span-4 flex gap-2">
+                                    <select id="expPayer" class="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all appearance-none cursor-pointer">
+                                        </select>
+                                    <button onclick="addExpense()" class="bg-slate-900 hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 text-white p-3 rounded-xl transition-all active:scale-95 shadow-lg shadow-slate-900/10 dark:shadow-sky-600/20 flex items-center justify-center">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+                                <span class="text-xs font-bold text-slate-400 block mb-2">割り勘対象 (誰の分？)</span>
+                                <div class="flex gap-2 flex-wrap" id="targetSelector">
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="settlementArea" class="glass-card p-6 rounded-3xl hidden ring-1 ring-sky-500/20">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-widest flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                                最適な精算プラン
+                            </h4>
+                            <button onclick="copySettlement()" class="text-xs text-slate-400 hover:text-sky-500 flex items-center gap-1 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                                Copy Text
+                            </button>
+                        </div>
+                        <ul id="settlementList" class="space-y-3">
+                            </ul>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-3xl">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">History Log</h4>
+                        <ul id="expenseList" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                            <li class="text-center text-slate-400 text-sm py-8 italic">履歴はまだありません</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 md:p-8 rounded-3xl stagger-item border-l-[6px] border-indigo-500 relative overflow-hidden group">
+                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-3 text-slate-800 dark:text-white">
+                        <span class="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg text-indigo-600 dark:text-indigo-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                        </span>
+                        宿泊：波と月
+                    </h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-100 dark:border-slate-700">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider mb-1">Type</span>
+                            <span class="font-bold text-sm md:text-base">一棟貸し</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-100 dark:border-slate-700">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider mb-1">Wi-Fi</span>
+                            <span class="font-bold text-sm md:text-base">完備</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-100 dark:border-slate-700">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider mb-1">Parking</span>
+                            <span class="font-bold text-sm md:text-base">あり</span>
+                        </div>
+                         <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-100 dark:border-slate-700">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider mb-1">Special</span>
+                            <span class="font-bold text-sm md:text-base">サウナ</span>
+                        </div>
+                    </div>
+                    <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl text-xs md:text-sm text-indigo-800 dark:text-indigo-200 leading-relaxed border border-indigo-100 dark:border-indigo-800/30">
+                        <span class="font-bold mr-1">Note:</span>
+                        キッチン完備（冷蔵庫・レンジ・食器）。BBQ網・炭は事前確認が必要です。冬場は室内調理やポータブルコンロの併用がおすすめ。
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass-card p-6 rounded-3xl stagger-item">
+                    <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        買い出し計算機
+                    </h3>
+                    
+                    <div class="h-56 mb-6 relative group cursor-default">
+                        <canvas id="seafoodChart"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-transform group-hover:scale-110 duration-300">
+                            <span class="text-[10px] text-slate-400 uppercase tracking-widest">ITEMS</span>
+                            <span id="totalCount" class="text-4xl font-extrabold text-slate-700 dark:text-white font-mono mt-1">0</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl mb-4 border border-slate-200 dark:border-slate-700 flex gap-2 shadow-inner">
+                        <input type="text" id="itemName" placeholder="食材" class="w-full px-3 py-2 bg-white dark:bg-slate-700 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 outline-none transition-all border border-transparent focus:border-sky-500">
+                        <input type="number" id="itemCount" placeholder="個" class="w-16 px-3 py-2 bg-white dark:bg-slate-700 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 outline-none transition-all text-center border border-transparent focus:border-sky-500">
+                        <button onclick="addItem()" class="bg-sky-500 hover:bg-sky-600 text-white p-2 rounded-lg transition-colors shadow-lg shadow-sky-500/20 active:scale-95">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                    </div>
+
+                    <div class="max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+                        <ul id="foodList" class="space-y-2 pb-2">
+                            </ul>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-3xl stagger-item bg-slate-800 text-white dark:bg-slate-900 border-none shadow-xl">
+                    <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        持ち物チェック
+                    </h3>
+                    <div class="space-y-3" id="checklistContainer">
+                        <label class="flex items-center gap-3 cursor-pointer group p-2 hover:bg-white/5 rounded-lg transition-colors">
+                            <input type="checkbox" class="w-5 h-5 rounded border-slate-600 bg-transparent text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all" data-id="chk1">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition-colors select-none">防寒着（海沿い用）</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group p-2 hover:bg-white/5 rounded-lg transition-colors">
+                            <input type="checkbox" class="w-5 h-5 rounded border-slate-600 bg-transparent text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all" data-id="chk2">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition-colors select-none">パジャマ</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group p-2 hover:bg-white/5 rounded-lg transition-colors">
+                            <input type="checkbox" class="w-5 h-5 rounded border-slate-600 bg-transparent text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all" data-id="chk3">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition-colors select-none">ウェットティッシュ</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group p-2 hover:bg-white/5 rounded-lg transition-colors">
+                            <input type="checkbox" class="w-5 h-5 rounded border-slate-600 bg-transparent text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all" data-id="chk4">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition-colors select-none">サウナ用水着</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group p-2 hover:bg-white/5 rounded-lg transition-colors">
+                            <input type="checkbox" class="w-5 h-5 rounded border-slate-600 bg-transparent text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all" data-id="chk5">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition-colors select-none">クーラーボックス</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-12 text-slate-400 text-xs">
+        <p class="mb-2">Safe trip & Enjoy the seafood 🐟</p>
+        <p class="opacity-50">© 2025 Oarai Winter Journey Dashboard</p>
+    </footer>
+
+    <script>
+        // ==========================================
+        //  Core & Persistence Logic
+        // ==========================================
+        
+        // Data Store (v2: Added targets support)
+        const APP_KEY = 'oarai_trip_v2';
+        let appData = {
+            members: ['メンバーA', 'メンバーB', 'メンバーC', 'メンバーD'],
+            foodData: [
+                { name: '牡蠣 (殻付)', count: 25, color: '#0ea5e9' },
+                { name: 'ホタテ', count: 12, color: '#f59e0b' },
+                { name: 'エビ', count: 24, color: '#10b981' },
+                { name: 'サザエ', count: 8, color: '#6366f1' },
+                { name: 'イカ', count: 2, color: '#ec4899' }
+            ],
+            expenses: [],
+            checks: {}
+        };
+
+        // Load Data
+        function loadData() {
+            const saved = localStorage.getItem(APP_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appData = { ...appData, ...parsed };
+                    // Migration fallback if needed
+                    if(!appData.members) appData.members = ['A', 'B', 'C', 'D'];
+                } catch(e) { console.error('Data Load Error', e); }
+            }
+            applyDataToUI();
+        }
+
+        // Save Data
+        function saveData() {
+            localStorage.setItem(APP_KEY, JSON.stringify(appData));
+        }
+
+        // Apply Data to UI
+        function applyDataToUI() {
+            // Members
+            appData.members.forEach((m, i) => {
+                const el = document.getElementById(`member${i}`);
+                if(el) el.value = m;
+            });
+            // Food
+            updateSeafoodUI();
+            // Expenses
+            updateExpenseList();
+            calcSplits();
+            // Checks
+            document.querySelectorAll('input[type="checkbox"][data-id]').forEach(el => {
+                el.checked = !!appData.checks[el.dataset.id];
+            });
+            // Update Selectors
+            updatePayerSelect();
+            updateTargetSelector();
+        }
+
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if(confirm('すべてのデータをリセットしますか？')) {
+                localStorage.removeItem(APP_KEY);
+                location.reload();
+            }
+        });
+
+        // Checklist Listener
+        document.querySelectorAll('input[type="checkbox"][data-id]').forEach(el => {
+            el.addEventListener('change', (e) => {
+                appData.checks[e.target.dataset.id] = e.target.checked;
+                saveData();
+            });
+        });
+
+        // ==========================================
+        //  UI Interactions (Tabs & Theme)
+        // ==========================================
+
+        const themeToggle = document.getElementById('themeToggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+        const html = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.classList.add('dark');
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        } else {
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            if (html.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                localStorage.setItem('theme', 'light');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        });
+
+        function switchTab(day) {
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.style.opacity = '0';
+                setTimeout(() => c.classList.remove('active'), 200);
+            });
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'text-slate-800', 'shadow-sm', 'ring-1');
+                b.classList.add('text-slate-500');
+            });
+            
+            setTimeout(() => {
+                const target = document.getElementById(day);
+                target.classList.add('active');
+                requestAnimationFrame(() => target.style.opacity = '1');
+            }, 200);
+
+            const activeBtn = document.getElementById('btn-' + day);
+            activeBtn.classList.add('active', 'bg-white', 'text-slate-800', 'shadow-sm', 'ring-1');
+            activeBtn.classList.remove('text-slate-500');
+            
+            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+
+        // ==========================================
+        //  Seafood Logic (Chart.js)
+        // ==========================================
+        
+        let seafoodChart;
+        const colorPalette = ['#0ea5e9', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6', '#f43f5e', '#14b8a6'];
+
+        function initChart() {
+            const ctx = document.getElementById('seafoodChart').getContext('2d');
+            seafoodChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [],
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 10 },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw || 0;
+                                    let total = context.chart._metasets[context.datasetIndex].total;
+                                    let percentage = Math.round((value / total) * 100) + '%';
+                                    return ` ${label}: ${value} (${percentage})`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '75%',
+                    animation: { animateScale: true, animateRotate: true }
+                }
+            });
+        }
+
+        function updateSeafoodUI() {
+            const listContainer = document.getElementById('foodList');
+            listContainer.innerHTML = '';
+            let total = 0;
+
+            appData.foodData.forEach((item, index) => {
+                total += parseInt(item.count);
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center text-sm p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors list-anim-enter group';
+                li.style.animationDelay = `${index * 50}ms`;
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style="background-color: ${item.color}"></div>
+                        <span class="font-medium text-slate-700 dark:text-slate-200">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-mono font-bold text-slate-600 dark:text-slate-400">${item.count}</span>
+                        <button onclick="deleteItem(${index})" class="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(li);
+            });
+
+            if(seafoodChart) {
+                seafoodChart.data.labels = appData.foodData.map(d => d.name);
+                seafoodChart.data.datasets[0].data = appData.foodData.map(d => d.count);
+                seafoodChart.data.datasets[0].backgroundColor = appData.foodData.map(d => d.color);
+                seafoodChart.update();
+            }
+            document.getElementById('totalCount').innerText = total;
+        }
+
+        function addItem() {
+            const nameInput = document.getElementById('itemName');
+            const countInput = document.getElementById('itemCount');
+            const name = nameInput.value.trim();
+            const count = parseInt(countInput.value);
+
+            if (name && count > 0) {
+                const color = colorPalette[appData.foodData.length % colorPalette.length];
+                appData.foodData.push({ name, count, color });
+                saveData();
+                nameInput.value = '';
+                countInput.value = '';
+                updateSeafoodUI();
+            } else {
+                nameInput.classList.add('shake');
+                setTimeout(() => nameInput.classList.remove('shake'), 500);
+            }
+        }
+
+        function deleteItem(index) {
+            appData.foodData.splice(index, 1);
+            saveData();
+            updateSeafoodUI();
+        }
+
+        // ==========================================
+        //  Walica Split Bill Logic (Updated for Targets)
+        // ==========================================
+
+        function updateMembers() {
+            appData.members = [
+                document.getElementById('member0').value,
+                document.getElementById('member1').value,
+                document.getElementById('member2').value,
+                document.getElementById('member3').value
+            ];
+            saveData();
+            updatePayerSelect();
+            updateTargetSelector(); // Also update target buttons
+            calcSplits(); 
+            updateExpenseList(); 
+        }
+
+        function updatePayerSelect() {
+            const select = document.getElementById('expPayer');
+            const currentVal = select.value;
+            select.innerHTML = '';
+            appData.members.forEach((m, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.text = m + ' が支払う';
+                select.appendChild(opt);
+            });
+            if (currentVal && currentVal < appData.members.length) select.value = currentVal;
+        }
+
+        // Generate Target Buttons (Toggle style)
+        function updateTargetSelector() {
+            const container = document.getElementById('targetSelector');
+            container.innerHTML = '';
+            
+            appData.members.forEach((m, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'member-toggle active px-3 py-1.5 rounded-full text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 select-none';
+                btn.innerText = m;
+                btn.dataset.idx = i;
+                btn.onclick = function() {
+                    this.classList.toggle('active');
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function addExpense() {
+            const titleInput = document.getElementById('expTitle');
+            const amountInput = document.getElementById('expAmount');
+            
+            const title = titleInput.value.trim();
+            const amount = parseInt(amountInput.value);
+            const payerIdx = parseInt(document.getElementById('expPayer').value);
+
+            // Get Targets
+            const targetBtns = document.querySelectorAll('#targetSelector .member-toggle.active');
+            let targetIndices = [];
+            targetBtns.forEach(btn => targetIndices.push(parseInt(btn.dataset.idx)));
+
+            if (!title || isNaN(amount) || amount <= 0) {
+                if(!title) { titleInput.classList.add('shake', 'border-red-500'); setTimeout(()=> titleInput.classList.remove('shake', 'border-red-500'), 500); }
+                if(isNaN(amount) || amount<=0) { amountInput.classList.add('shake', 'border-red-500'); setTimeout(()=> amountInput.classList.remove('shake', 'border-red-500'), 500); }
+                return;
+            }
+
+            if (targetIndices.length === 0) {
+                alert('少なくとも1人の対象者を選択してください');
+                return;
+            }
+
+            appData.expenses.push({ 
+                title, 
+                amount, 
+                payerIdx, 
+                targets: targetIndices, // Save who is involved
+                timestamp: new Date().getTime() 
+            });
+            saveData();
+            
+            titleInput.value = '';
+            amountInput.value = '';
+            titleInput.focus();
+            
+            // Reset targets to all checked (optional UX choice, keeping it sticky or reset? Let's reset for safety)
+            document.querySelectorAll('#targetSelector .member-toggle').forEach(b => b.classList.add('active'));
+
+            updateExpenseList();
+            calcSplits();
+        }
+
+        function deleteExpense(idx) {
+            if(confirm('この項目を削除しますか？')) {
+                appData.expenses.splice(idx, 1);
+                saveData();
+                updateExpenseList();
+                calcSplits();
+            }
+        }
+
+        function updateExpenseList() {
+            const list = document.getElementById('expenseList');
+            list.innerHTML = '';
+            
+            if (appData.expenses.length === 0) {
+                list.innerHTML = '<li class="text-center text-slate-400 text-sm py-8 italic">履歴はまだありません</li>';
+                return;
+            }
+
+            [...appData.expenses].reverse().forEach((ex, reverseIdx) => {
+                const realIdx = appData.expenses.length - 1 - reverseIdx;
+                
+                // Format target string
+                let targetText = "全員";
+                if (ex.targets && ex.targets.length < appData.members.length) {
+                    const names = ex.targets.map(idx => appData.members[idx]);
+                    targetText = names.join(', ');
+                }
+
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-3.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 list-anim-enter group';
+                li.innerHTML = `
+                    <div>
+                        <div class="font-bold text-slate-700 dark:text-slate-200 text-sm">${ex.title}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            <span class="font-semibold text-slate-600 dark:text-slate-400">${appData.members[ex.payerIdx]}</span>
+                            <span class="mx-1">→</span>
+                            <span>${targetText}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-mono font-bold text-sky-600 dark:text-sky-400">¥${ex.amount.toLocaleString()}</span>
+                        <button onclick="deleteExpense(${realIdx})" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1">
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function calcSplits() {
+            const total = appData.expenses.reduce((sum, ex) => sum + ex.amount, 0);
+            document.getElementById('displayTotal').innerText = '¥' + total.toLocaleString();
+
+            // Calculate balances individually
+            let balances = appData.members.map(() => 0);
+            
+            appData.expenses.forEach(ex => {
+                // Payer gets credit (+)
+                balances[ex.payerIdx] += ex.amount;
+                
+                // Targets get debit (-)
+                // If old data (no targets), assume all
+                const targets = ex.targets || appData.members.map((_, i) => i);
+                
+                if (targets.length > 0) {
+                    const share = ex.amount / targets.length;
+                    targets.forEach(tIdx => {
+                        balances[tIdx] -= share;
+                    });
+                }
+            });
+
+            // For Settlement
+            let debtors = [];
+            let creditors = [];
+
+            balances.forEach((b, i) => {
+                // Round to avoid float issues
+                const rounded = Math.round(b);
+                if (rounded < -1) debtors.push({ idx: i, amount: -rounded });
+                if (rounded > 1) creditors.push({ idx: i, amount: rounded });
+            });
+
+            const resultList = document.getElementById('settlementList');
+            const resultArea = document.getElementById('settlementArea');
+            resultList.innerHTML = '';
+
+            if (debtors.length === 0 && creditors.length === 0) {
+                resultArea.classList.add('hidden');
+                return;
+            }
+            resultArea.classList.remove('hidden');
+
+            let transactions = [];
+            let d = 0, c = 0;
+            
+            while (d < debtors.length && c < creditors.length) {
+                let debtor = debtors[d];
+                let creditor = creditors[c];
+                let amount = Math.min(debtor.amount, creditor.amount);
+                
+                if (amount > 0) {
+                    transactions.push({
+                        from: appData.members[debtor.idx],
+                        to: appData.members[creditor.idx],
+                        amount: Math.round(amount)
+                    });
+                }
+                debtor.amount -= amount;
+                creditor.amount -= amount;
+                if (debtor.amount < 1) d++;
+                if (creditor.amount < 1) c++;
+            }
+
+            transactions.forEach(t => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-3.5 bg-sky-50 dark:bg-sky-900/20 rounded-xl border border-sky-100 dark:border-sky-800/30 list-anim-enter';
+                li.innerHTML = `
+                    <div class="flex items-center gap-3 text-sm font-bold text-slate-700 dark:text-slate-300">
+                        <span class="w-20 truncate text-right">${t.from}</span>
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-slate-400">PAY</span>
+                            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                        </div>
+                        <span class="w-20 truncate text-left">${t.to}</span>
+                    </div>
+                    <span class="font-mono font-bold text-sky-600 dark:text-sky-400 text-lg">¥${t.amount.toLocaleString()}</span>
+                `;
+                resultList.appendChild(li);
+            });
+        }
+        
+        function copySettlement() {
+            const items = document.querySelectorAll('#settlementList li');
+            if(items.length === 0) return;
+            
+            let text = "【大洗旅行 精算プラン】\n";
+            items.forEach(li => {
+                const from = li.querySelector('span:first-child').innerText;
+                const to = li.querySelectorAll('span')[2].innerText;
+                const yen = li.querySelector('span:last-child').innerText;
+                text += `${from} → ${to} : ${yen}\n`;
+            });
+            text += `\n合計支出: ${document.getElementById('displayTotal').innerText}`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('精算プランをコピーしました！');
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const items = document.querySelectorAll('.stagger-item');
+            items.forEach((item, index) => {
+                setTimeout(() => {
+                    item.style.transition = 'all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+
+            initChart();
+            loadData();
+            // Selectors are updated inside loadData -> applyDataToUI -> updateTargetSelector
+        });
+    </script>
+</body>
+</html>
